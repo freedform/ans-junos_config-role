@@ -1,0 +1,85 @@
+{% macro acl_macro(acls) %}
+{% set match_dict = {
+        "src_prefix_list": "source-prefix-list",
+        "dst_prefix_list": "destination-prefix-list",
+        "src_address": "source-address",
+        "dst_address": "destination-address",
+        "src_port": "source-port",
+        "dst_port": "destination-port",
+    }
+%}
+{% for family, acl in acls.items() %}
+family {{ family | family_check }} {
+    {% for acl_name, acl_data in acl.items() %}
+    filter {{ acl_name }} {
+        {% if (acl_data.rules is defined) and (acl_data.rules | is_list) %}
+        {% for rule in acl_data.rules %}
+        term {{ acl_name }}_rule_{{ loop.index }} {
+            {% if (rule.filter is defined) %}
+            filter {{ rule.filter | str_check }};
+            {% elif (rule.match is defined) and (rule.match is mapping) %}
+            from {
+                {% for match_name, match_value in  rule.match.items() %}
+                {% if match_name in ["src_prefix_list", "dst_prefix_list"] %}
+                {{ match_dict[match_name] }} {
+                    {% if match_value | is_list %}
+                    {% for prefix_list in match_value %}
+                    {{ prefix_list | str_check }};
+                    {% endfor %}
+                    {% else %}
+                    {{ match_value | str_check }};
+                    {% endif %}
+                }
+                {% elif match_name in ["src_address", "dst_address"] %}
+                {{ match_dict[match_name] }} {
+                    {% if match_value | is_list %}
+                    {% for address in match_value %}
+                    {{ address | ip_check("interface", "ipv4") }};
+                    {% endfor %}
+                    {% else %}
+                    {{ match_value | ip_check("interface", "ipv4") }};
+                    {% endif %}
+                }
+                {% elif match_name in ["src_port", "dst_port"] %}
+                {{ match_dict[match_name] }} {{ match_value | tcp_udp_or_list }};
+                {% elif match_name == "icmp_type" %}
+                icmp-type {{ match_value | icmp_type_or_list }};
+                {% elif match_name == "protocol" %}
+                protocol {{ match_value | protocol_or_list }};
+                {% elif match_name == "is_fragment" %}
+                is-fragment;
+                {% elif match_name == "ttl" %}
+                ttl {{ match_value | int_check }};
+                {% elif match_name == "established" %}
+                tcp-established;
+                {% else %}
+                {% endif %}
+                {% endfor %}
+            }
+            {% if rule.action | is_list %}
+            then {
+                {% for action in rule.action %}
+                {{ action | acl_action_check }};
+                {% endfor %}
+            }
+            {% else %}
+            then {{ rule.action | acl_action_check }};
+            {% endif %}
+            {% endif %}
+        }
+        {% endfor %}
+        {% endif %}
+        {% if acl_data.default is not defined %}
+        term default_rule {
+            then discard;
+        }
+        {% elif (acl_data.default is defined) and acl_data.default %}
+        term default_rule {
+            then {{ acl_data.default }};
+        }
+        {% endif %}
+    }
+    {% endfor %}
+}
+{% endfor %}
+{% endmacro %}

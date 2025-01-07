@@ -1,0 +1,48 @@
+{% macro rstp_macro(rstp_data) %}
+rstp {
+    {% if rstp_data.priority is defined %}
+    bridge-priority {{ rstp_data.priority }};
+    {% endif %}
+    {% if (rstp_data.max_age is defined) and (rstp_data.max_age is number) %}
+    max-age {{ rstp_data.max_age }};
+    {% endif %}
+    {% if (rstp_data.hello_timer is defined) and (rstp_data.hello_timer is number) %}
+    hello-time {{ rstp_data.hello_timer }};
+    {% endif %}
+    {% if (rstp_data.forward_delay is defined) and (rstp_data.forward_delay is number) %}
+    forward-delay {{ rstp_data.forward_delay }};
+    {% endif %}
+    {% if rstp_data.block_on_edge is defined %}
+    bpdu-block-on-edge;
+    {% endif %}
+    {% if (rstp_data.interfaces is defined) and (rstp_data.interfaces is mapping) %}
+    {% for name, interface in rstp_data.interfaces.items() %}
+    interface {{ name }} {
+        {% if (interface.priority is defined) and (interface.priority is number) %}
+        priority {{ interface.priority }};
+        {% endif %}
+        {% if (interface.cost is defined) and (interface.cost is number) %}
+        cost {{ interface.cost }};
+        {% endif %}
+        {% if (interface.mode is defined) and (interface.mode in ["shared", "point-to-point"]) %}
+        mode {{ interface.mode }};
+        {% endif %}
+        {% if interface.edge is defined %}
+        edge;
+        {% endif %}
+        {% if interface.loop_protect is defined %}
+        bpdu-timeout-action {
+            block;
+        }
+        {% endif %}
+        {% if interface.root_protect is defined %}
+        no-root-port;
+        {% else %}
+        {% endif %}
+        
+    }
+    {% endfor %}
+    {% endif %}
+
+}
+{% endmacro %}

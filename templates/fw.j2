@@ -1,0 +1,8 @@
+{% macro fw_macro(fw) %}
+firewall {
+    {% if (fw.acls is defined) and (fw.acls is mapping) %}
+    {% import 'fw/acl.j2' as acl %}
+    {{ acl.acl_macro(fw.acls)|indent(4) -}}
+    {% endif %}
+}
+{% endmacro %}

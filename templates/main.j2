@@ -1,0 +1,49 @@
+#jinja2:lstrip_blocks: True
+{% import 'helpers/term_handler.j2' as term with context %}
+{% if d_data %}
+groups {
+    replace: {{ ag_name }} {
+        {##################### SYSTEM BLOCK #}
+        {% if (d_data.system is defined) and (d_data.system is mapping) %}
+        {% import 'system.j2' as sys_m %}
+        {{ sys_m.system_macro(d_data.system)|indent(8) -}}
+        {% endif %}
+        {##################### VLAN BLOCK #}
+        {% if (d_data.vlans is defined) and (d_data.vlans is mapping) %}
+        {% import 'vlans.j2' as vl with context %}
+        {{ vl.vlans_macro(d_data.vlans)|indent(8) -}}
+        {% endif %}
+        {##################### INTERFACE BLOCK#}
+        {% if (d_data.interfaces is defined) and (d_data.interfaces is mapping) %}
+        {% import 'interfaces.j2' as iface with context %}
+        {{ iface.interfaces_macro(d_data.interfaces)|indent(8) -}}
+        {% endif %}
+        {##################### ROUTING OPTIONS BLOCK #}
+        {% if (d_data.policies is defined) and (d_data.policies is mapping) %}
+        {% import 'policies.j2' as pl with context %}
+        {{ pl.policies_macro(d_data.policies)|indent(8) -}}
+        {% endif %}
+        {##################### ROUTING OPTIONS BLOCK #}
+        {% if (d_data.routing_options is defined) and (d_data.routing_options is mapping) %}
+        {% import 'routing_options.j2' as ro %}
+        {{ ro.routing_options_macro(d_data.routing_options)|indent(8) -}}
+        {% endif %}
+        {##################### ROUTING INSTANCES BLOCK#}
+        {% if (d_data.routing_instances is defined) and (d_data.routing_instances is mapping) %}
+        {% import 'routing_instances.j2' as ri with context %}
+        {{ ri.routing_instances_macro(d_data.routing_instances)|indent(8) -}}
+        {% endif %}
+        {##################### PROTOCOLS BLOCK#}
+        {% if (d_data.protocols is defined) and (d_data.protocols is mapping) %}
+        {% import 'protocols.j2' as pr with context %}
+        {{ pr.protocols_macro(d_data.protocols)|indent(8) -}}
+        {% endif %}
+        {##################### ACL BLOCK#}
+        {% if (d_data.fw is defined) and (d_data.fw is mapping) %}
+        {% import 'fw.j2' as fw with context %}
+        {{ fw.fw_macro(d_data.fw)|indent(8) -}}
+        {% endif %}
+    }
+}
+apply-groups {{ ag_name }};
+{% endif %}

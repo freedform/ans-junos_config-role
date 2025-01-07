@@ -1,0 +1,31 @@
+{% macro ospf_macro(ospf_data, family="ipv4") %}
+{% if family == "ipv6" %}
+    {% set ospf_block_name = "ospf3" %}
+{% else %}
+    {% set ospf_block_name = "ospf" %}
+{% endif %}
+{{ ospf_block_name }} {
+    {% if ospf_data.export is defined %}
+    export {{ ospf_data.export | str_check }};
+    {% endif %}
+    {% for area_id, area_data in ospf_data.areas.items() %}
+    area 0.0.0.{{ area_id | int_check }} {
+        {% for iface_name, iface_data in area_data.interfaces.items() %}
+        interface {{ iface_name | interface_dot_format(svi_interface) }} {
+            {% if iface_data is mapping %}
+            interface-type {{ iface_data.type }};
+            {% if iface_data.hello is defined %}
+            hello-interval {{ iface_data.hello | int_check }};
+            {% endif %}
+            {% if iface_data.dead is defined %}
+            dead-interval {{ iface_data.dead | int_check }};
+            {% endif %}
+            {% else %}
+            passive;
+            {% endif %}
+        }
+        {% endfor %}
+    }
+    {% endfor %}
+}
+{% endmacro %}

@@ -1,0 +1,39 @@
+{% macro policies_macro(policies) %}
+policy-options {
+    {##################### CONFIGURE prefix lists, the list can be empty #}
+    {% if (policies.prefix_lists is defined) and (policies.prefix_lists is mapping) %}
+    {% from 'policies/prefix_list.j2' import prefix_list_macro %}
+    {{ prefix_list_macro(policies.prefix_lists)|indent(4) -}}
+    {% endif %}
+    {##################### CONFIGURE policy statements #}
+    {% if (policies.statements is defined) and (policies.statements is mapping) %}
+    {% for st_name, st_rules in policies.statements.items() %}
+    policy-statement {{ st_name }} {
+        {% if (st_rules is defined) and (st_rules | is_list) %}
+        {% for rule in st_rules %}
+        term {{ st_name }}_rule_{{ loop.index }} {
+            {% if (rule.match is defined) and (rule.match is mapping) %}
+            {{ term.from(rule.match)|indent(12) }}
+            {% endif %}
+            {% if (rule.action is string) and (rule.action|length > 0) %}
+            then {{ rule.action }};
+            {% elif rule.action | is_list %}
+            then {
+                {% for act in rule.action %}
+                {{ act }};
+                {% endfor %}
+            }
+            {% else %}
+            then reject;
+            {% endif %}
+        }
+        {% endfor %}
+        {% endif %}
+        term default_rule {
+            then reject;
+        }
+    }
+    {% endfor %}
+    {% endif %}
+}
+{% endmacro %}

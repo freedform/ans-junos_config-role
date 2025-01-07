@@ -1,0 +1,26 @@
+{% macro routing_instances_macro(instances) %}
+routing-instances {
+    {% for ins_name, ins_data in instances.items() %}
+    {##################### CHECK routing instance type, the type must be instance_types list#}
+    {{ ins_name }} {
+        instance-type {{ ins_data.type }};
+        {##################### CONFIGURE interfaces for routing instance, the ins_data.interfaces must be a list #}
+        {% if (ins_data.interfaces is defined) and (ins_data.interfaces | is_list) %}
+        {% for interface in ins_data.interfaces %}
+        interface {{ interface | interface_dot_format(svi_interface) }};
+        {% endfor %}
+        {% endif %}
+        {##################### CALL routing_options_macro if ins_data.routing_options is defined as a dict #}
+        {% if (ins_data.routing_options is defined) and (ins_data.routing_options is mapping) %}
+        {% import 'routing_options.j2' as ro %}
+        {{ ro.routing_options_macro(ins_data.routing_options, ins_name)|indent(8) -}}
+        {% endif %}
+        {##################### CALL protocols_macro if ins_data.protocols is defined as a dict #}
+        {% if (ins_data.protocols is defined) and (ins_data.protocols is mapping) %}
+        {% import 'protocols.j2' as pr %}
+        {{ pr.protocols_macro(ins_data.protocols)|indent(8) -}}
+        {% endif %}
+    }
+    {% endfor %}
+}
+{% endmacro %}

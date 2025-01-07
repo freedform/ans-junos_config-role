@@ -1,0 +1,25 @@
+{% macro vlans_macro(vlans) %}
+vlans {
+    {% for vlan_name, vlan_data in vlans.items() %}
+    {{ vlan_name }} {
+        {% if vlan_data.description is defined %}
+        description "{{ vlan_data.description | str_check }}";
+        {% endif %}
+        vlan-id {{ vlan_data.id | vlan_check }};
+        {% if vlan_data.l3 is defined %}
+        l3-interface {{ svi_interface }}.{{ vlan_data.id }};
+        {% endif %}
+    }
+    {% endfor %}
+}
+{% set svi_list = vlans | l3_vlan_check %}
+{% if svi_list | length > 0 %}
+interfaces {
+    {{ svi_interface }} {
+        {% for svi in svi_list %}
+        unit {{ svi }};
+        {% endfor %}
+    }
+}
+{% endif %}
+{% endmacro %}

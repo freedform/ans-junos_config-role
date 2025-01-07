@@ -1,0 +1,17 @@
+{% macro prefix_list_macro(prefix_list_data) %}
+{% for list_name, list_data in prefix_list_data.items() %}
+{% if list_data | is_list %}
+prefix-list {{ list_name }} {
+    {% for prefix in list_data %}
+    {{ prefix | ip_check("network") }};
+    {% endfor %}
+}
+{% elif (list_data is string) and ("apply-path" in list_data) %}
+prefix-list {{ list_name }} {
+    {{ list_data }}
+}
+{% else %}
+prefix-list {{ list_name }};
+{% endif %}
+{% endfor %}
+{% endmacro %}

@@ -1,0 +1,135 @@
+{% macro system_macro(sys_data) %}
+system {
+    {% if sys_data.hostname is defined %}
+    host-name {{ sys_data.hostname | str_check }};
+    {% endif %}
+    {% if sys_data.timezone is defined %}
+    time-zone {{ sys_data.timezone | str_check }};
+    {% endif %}
+    {% if (sys_data.dns is defined) and (sys_data.dns | is_list) %}
+    name-server {
+        {% for dns_server in sys_data.dns %}
+        {{ dns_server | ip_check("address", "ipv4") }};
+        {% endfor %}
+    }
+    {% endif%}
+    {% if (sys_data.ntp is defined) and (sys_data.ntp is mapping) %}
+    ntp {
+        {% for ntp_server in sys_data.ntp.servers %}
+        server {{ ntp_server | ip_check("address", "ipv4") }};
+        {% endfor %}
+        {% if sys_data.ntp.source_address is defined %}
+        source-address {{ sys_data.ntp.source_address | ip_check("address", "ipv4") }};
+        {% endif %}
+    }
+    {% endif%}
+    {% if sys_data.time_zone is defined %}
+    time-zone {{ sys_data.time_zone | str_check }};
+    {% endif %}
+    {% if (sys_data.classes is defined) and (sys_data.classes is mapping) %}
+    login {
+        {% for class_name, class_data in sys_data.classes.items() %}
+        class {{ class_name }} {
+            permissions {{ class_data.permissions | str_or_list }};
+            {% if class_data.deny_comm_pattern is string %}
+            deny-commands "{{ class_data.deny_comm_pattern }}";
+            {% endif%}
+            {% if class_data.allow_conf_pattern is string %}
+            allow-configuration "{{ class_data.allow_conf_pattern }}";
+            {% endif%}
+            {% if class_data.deny_conf_pattern is string %}
+            deny-configuration "{{ class_data.deny_conf_pattern }}";
+            {% endif%}
+        }
+        {% endfor %}
+    }
+    {% endif%}
+    {% if (sys_data.users is defined) and (sys_data.users is mapping) %}
+    login {
+        {% for user_name, user_data in sys_data.users.items() %}
+        user {{ user_name }} {
+            uid {{ user_data.uid | int_check }};
+            class {{ user_data.class }};
+            {% if user_data.ssh_key is defined %}
+            authentication {
+                ssh-rsa "{{ user_data.ssh_key | str_check }}"
+            }
+            {% endif %}
+        }
+        {% endfor %}
+    }
+    {% endif%}
+    {% if (sys_data.ssh is defined) and (sys_data.ssh is mapping) %}
+    services {
+        ssh {
+            root-login {{ sys_data.ssh.root_login }};
+            protocol-version v{{ sys_data.ssh.version }};
+        }
+    }
+    {% endif %}
+    {% if sys_data.netconf is defined %}
+    services {
+        netconf {
+            {% if sys_data.netconf is mapping %}
+            ssh {
+                {% if (sys_data.netconf.connection_limit is defined) and (sys_data.netconf.connection_limit is number) %}
+                connection-limit {{ sys_data.netconf.connection_limit }};
+                {% endif %}
+                {% if (sys_data.netconf.connection_rate is defined) and (sys_data.netconf.connection_rate is number) %}
+                rate-limit {{ sys_data.netconf.connection_rate }};
+                {% endif %}
+                {% if (sys_data.netconf.port is defined) and (sys_data.netconf.port is number) %}
+                port {{ sys_data.netconf.port }};
+                {% endif %}
+            }
+            {% else %}
+            ssh;
+            {% endif %}
+        }
+    }
+    {% endif %}
+    {% if (sys_data.radius is defined) and (sys_data.radius is mapping) %}
+    radius-server {
+        {% for radius_ip, radius_data in sys_data.radius.items() %}
+        {{ radius_ip | ip_check("address", "ipv4") }} {
+            secret "{{ radius_data.secret }}"; ## SECRET-DATA
+            {% if radius_data.timeout is defined %}
+            timeout {{ radius_data.timeout | int_check }};
+            {% endif %}
+            {% if radius_data.retry is defined %}
+            retry {{ radius_data.retry | int_check }};
+            {% endif %}
+            {% if (radius_data.source_address is defined) and (radius_data.source_address is string) %}
+            source-address {{ radius_data.source_address | ip_check("address", "ipv4") }};
+            {% endif %}
+        }
+        {% endfor %}
+    }
+    {% endif %}
+    {% if (sys_data.auth_order is defined) and (sys_data.auth_order | is_list) %}
+    authentication-order {{ sys_data.auth_order | str_or_list }};
+    {% endif %}
+}
+{% if (sys_data.snmp is defined) and (sys_data.snmp is mapping) %}
+snmp {
+{% for view_name, view_data in sys_data.snmp.views.items() %}
+    view {{ view_name }} {
+        {% for oid in view_data %}
+        oid {{ oid }};
+        {% endfor %}
+    }
+{% endfor %}
+{% if (sys_data.snmp.v2 is defined) and (sys_data.snmp.v2 is mapping) %}
+    {% for community_name, community_data in sys_data.snmp.v2.items() %}
+    community {{ community_name }} {
+        view {{ community_data.view }};
+        authorization {{ community_data.scope }};
+        {% if community_data.acl is defined %}
+        client-list-name {{ community_data.acl | str_check }};
+        {% endif %}
+    }
+    {% endfor %}
+{% endif %}
+}
+{% endif %}
+{% endmacro %}

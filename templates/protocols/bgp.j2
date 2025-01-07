@@ -1,0 +1,53 @@
+{% macro bgp_macro(bgp_data) %}
+bgp {
+    {% for group in bgp_data.groups %}
+    group {{ group.name }} {
+        type {{ group.type }};
+        {% if group.rr_ip is defined %}
+        cluster {{ group.rr_ip | ip_check("address") }};
+        {% endif %}
+        {% if group.peer_as is defined %}
+        peer-as {{ group.peer_as | int_check }};
+        {% endif %}
+        {% if group.local_as is defined %}
+        local-as {{ group.local_as | int_check }};
+        {% endif %}
+        {% if group.local_ip is defined  %}
+        local-address {{ group.local_ip | ip_check("address") }};
+        {% endif%}
+        {% if group.auth_key is defined %}
+        authentication-key "{{ group.auth_key | str_check }}"; ## SECRET-DATA
+        {% endif %}
+        {% if (group.import is defined) %}
+        import {{ group.import | str_or_list }};
+        {% endif%}
+        {% if (group.export is defined) %}
+        export {{ group.export | str_or_list }};
+        {% endif %}
+        {% if (group.grace_restart is defined) %}
+        graceful-restart;
+        {% endif %}
+        {% if (group.remove_private is defined) %}
+        remove-private;
+        {% endif %}
+        {% for neighbor in group.neighbors %}
+        {% if neighbor.keys()|length > 1 %}
+        neighbor {{ neighbor.remote_ip | ip_check("address") }} {
+            {% if neighbor.local_ip is defined %}
+            local-address {{ neighbor.local_ip | ip_check("address") }};
+            {% endif%}
+            {% if (neighbor.import is defined) %}
+            import {{ neighbor.import | str_or_list }};
+            {% endif %}
+            {% if (neighbor.export is defined) %}
+            export {{ neighbor.export | str_or_list }};
+            {% endif %}
+        }
+        {% else %}
+        neighbor {{ neighbor.remote_ip | ip_check("address") }};
+        {% endif %}
+        {% endfor %}
+    }
+    {% endfor %}
+}
+{% endmacro %}

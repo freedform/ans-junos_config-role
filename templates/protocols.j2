@@ -1,0 +1,24 @@
+{% macro protocols_macro(protocols) %}
+protocols {
+    {% if (protocols.bgp is defined) and (protocols.bgp is mapping)%}
+    {% import 'protocols/bgp.j2' as bgp %}
+    {{ bgp.bgp_macro(protocols.bgp)|indent(4) -}}
+    {% endif %}
+    {% if (protocols.ospf is defined) and (protocols.ospf is mapping)%}
+    {% import 'protocols/ospf.j2' as ospf with context %}
+    {% if (protocols.ospf.ipv4 is defined) and (protocols.ospf.ipv4 is mapping) %}
+    {{ ospf.ospf_macro(protocols.ospf.ipv4)|indent(4) -}}
+    {% endif %}
+    {% if (protocols.ospf.ipv6 is defined) and (protocols.ospf.ipv6 is mapping) %}
+    {{ ospf.ospf_macro(protocols.ospf.ipv6, family="ipv6")|indent(4) -}}
+    {% endif %}
+    {% if ("ipv4" not in protocols.ospf.keys()) and ("ipv6" not in protocols.ospf.keys()) %}
+    {{ ospf.ospf_macro(protocols.ospf)|indent(4) -}}
+    {% endif %}
+    {% endif %}
+    {% if (protocols.rstp is defined) and (protocols.rstp is mapping)%}
+    {% import 'protocols/rstp.j2' as rstp %}
+    {{ rstp.rstp_macro(protocols.rstp)|indent(4) -}}
+    {% endif %}
+}
+{% endmacro %}

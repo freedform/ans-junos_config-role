@@ -1,0 +1,53 @@
+- name: Create directories
+  file:
+    path: "{{ config_dir }}"
+    state: directory
+  delegate_to: localhost
+  run_once: true
+  tags:
+    - generate
+    - check
+    - apply
+
+- name: Generate config
+  template:
+    src: "main.j2"
+    dest: "{{ config_path }}"
+  vars:
+    d_data: "{{ lookup('vars', ag_name)[inventory_hostname] }}"
+  when: inventory_hostname in lookup('vars', ag_name, default={})
+  tags:
+    - generate
+    - check
+    - apply
+
+- name: Remote work with network device
+  block:
+    - name: Check candidate configuration
+      junos_config:
+        check_commit: yes
+        src: "{{ config_path }}"
+        src_format: "text"
+        update: replace
+      register: check_status
+      tags:
+        - check
+        - apply
+
+    - name: Upload new configuration to device
+      junos_config:
+        src: "{{ config_path }}"
+        confirm: "{{ rb_timeout | default(2) }}"
+        src_format: "text"
+        update: replace
+        comment: "Apply {{ ag_name }}"
+      when: check_status.changed
+      tags:
+        - apply
+  when: inventory_hostname in lookup('vars', ag_name, default={})
+
+- name: Confirm a previous commit
+  junos_config:
+    confirm_commit: yes
+  tags:
+    - commit

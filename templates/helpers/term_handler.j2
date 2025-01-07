@@ -1,0 +1,33 @@
+{%- macro from(rule_match) -%}
+from {
+    {% for match_name, match_value in rule_match.items() %}
+    {############### ROUTE FILTER BLOCK #}
+    {% if match_name in ["route-filter", "route_filter"] %}
+    {% if match_value | is_list %}
+    {% for route_value in match_value %}
+    {% if route_value is string %}
+    route-filter {{ route_value }} exact;
+    {% elif route_value is mapping %}
+    route-filter {{ route_value.keys() | first  }} {{ route_value.values() | first | str_check }};
+    {% endif %}
+    {% endfor %}
+    {% else %}
+    {{ "The given value '{}', is not supported by route-filter".format(match_value) | raise_error }}
+    {% endif %}
+    {############### ROUTING PREFIX LIST BLOCK #}
+    {% elif match_name in ["prefix-list", "prefix_list"] %}
+    {% if match_value is string %}
+    prefix-list {{ match_value | str_check }};
+    {% elif match_value | is_list %}
+    {% for prefix_value in match_value %}
+    prefix-list {{ prefix_value | str_check }};
+    {% endfor %}
+    {% else %}
+    {{ "The given value '{}', is not supported by prefix-list".format(match_value) | raise_error }}
+    {% endif %}
+    {% else %}
+    {{ match_name }} {{ match_value }};
+    {% endif %}
+    {% endfor %}
+}
+{%- endmacro -%}

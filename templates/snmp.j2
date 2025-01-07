@@ -1,0 +1,72 @@
+{% macro snmp_macro(snmp_data) %}
+snmp {
+    {##################### CONFIGURE snmp v3 #}
+    {% if (snmp_data.v3 is defined) and (snmp_data.v3 is mapping) %}
+    v3 {
+        usm {
+            local-engine {
+                {% for user_name, user_data in snmp_data.v3.items() %}
+                user {{ user_name }} {
+                    authentication-sha {
+                        authentication-key {{ user_data.auth_key }}; ## SECRET-DATA
+                    }
+                    privacy-aes128 {
+                        privacy-key {{ user_data.priv_key }}; ## SECRET-DATA
+                    }
+                }
+                {% endfor %}
+            }
+        }
+        vacm {
+            security-to-group {
+                security-model usm {
+                    {% for user_name in snmp_data.v3.keys() %}
+                    security-name {{ user_name }} {
+                        group {{ user_name }}_group;
+                    }
+                    {% endfor %}
+                }
+            }
+            access {
+                {% for user_name, user_data in snmp_data.v3.items() %}
+                group {{ user_name }}_group {
+                    default-context-prefix {
+                        security-model any {
+                            security-level authentication {
+                                {% if (user_data.ro_view is defined) and (user_data.ro_view is string) %}
+                                read-view {{ user_data.ro_view }};
+                                {% endif %}
+                                {% if (user_data.rw_view is defined) and (user_data.rw_view is string) %}
+                                write-view {{ user_data.rw_view }};
+                                {% endif %}
+                            }
+                        }
+                    }
+                }
+                {% endfor %}
+            }
+        }
+    }
+    {% endif %}
+    {##################### CONFIGURE snmp views #}
+    {% for view_name, view_data in snmp_data.views.items() %}
+    view {{ view_name }} {
+        {% for oid in view_data %}
+        oid {{ oid }};
+        {% endfor %}
+    }
+    {% endfor %}
+    {##################### CONFIGURE snmp v2 #}
+    {% if (snmp_data.v2 is defined) and (snmp_data.v2 is mapping) %}
+    {% for community_name, community_data in snmp_data.v2.items() %}
+    community {{ community_name }} {
+        view {{ community_data.view }};
+        authorization {{ community_data.scope }};
+        {% if community_data.acl is defined %}
+        client-list-name {{ community_data.acl | str_check }};
+        {% endif %}
+    }
+    {% endfor %}
+    {% endif %}
+}
+{% endmacro %}

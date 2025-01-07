@@ -1,0 +1,111 @@
+{% macro interfaces_macro(interfaces) %}
+{% set svi_list = ["vlan", "irb"] %}
+interfaces {
+    {% for iface_name, iface_data in interfaces.items() %}
+    {% if iface_name == "vlan" %}
+        {% set iface_name = svi_interface %}
+    {% endif %}
+    {{ iface_name }} {
+        {##################### CHECK whether an interface description is defined #}
+        {% if iface_data.description is defined %}
+        description "{{ iface_data.description | str_check }}";
+        {% endif %}
+        {##################### CHECK whether an interface is disabled #}
+        {% if iface_data.disable is defined %}
+        disable;
+        {% endif %}
+        {% if iface_data.mtu is defined %}
+        mtu {{ iface_data.mtu | int_check }};
+        {% endif %}
+        {##################### SET mode active and periodic fast if lacp is enabled #}
+        {% if (iface_name.startswith('ae')) and (iface_data.lacp_disable is not defined) %}
+        aggregated-ether-options {
+            lacp {
+                active;
+                periodic fast;
+            }
+        }
+        {% endif %}
+        {##################### CONFIGURE trunk interface, variable vlans must be a list #}
+        {% if iface_data.mode is defined %}
+        {% if iface_data.mode == 'trunk' %}
+        unit 0 {
+            family ethernet-switching {
+                {{ l2_if_mode }} trunk;
+                vlan {
+                    members {{ iface_data.vlans | vlan_list }};
+                }
+                {% if iface_data.native_vlan is defined %}
+                native-vlan-id {{ iface_data.native_vlan | vlan_check }};
+                {% endif %}
+            }
+        }
+        {##################### CONFIGURE access interface, variable vlans must be an integer #}
+        {% elif (iface_data.mode == 'access') %}
+        unit 0 {
+            family ethernet-switching {
+                {{ l2_if_mode }} access;
+                vlan {
+                    members {{ iface_data.vlans | vlan_check }};
+                }
+            }
+        }
+        {##################### CONFIGURE ip interface, variable units must be a dict #}
+        {% elif iface_data.mode in ["ip", "svi"] %}
+        {% if (iface_data.mode == 'svi') and (iface_name not in svi_list) %}
+        vlan-tagging;
+        {% endif %}
+        {% if iface_data.mode == 'ip' %}
+        {% set unit_list = {0: iface_data } %}
+        {% else %}
+        {% set unit_list = iface_data.units %}
+        {% endif %}
+        {% for unit_number, unit_data in unit_list.items() %}
+        unit {{ unit_number | int_check }} {
+            {% if (unit_number | int > 0) and (iface_name not in svi_list) %}
+            vlan-id {{ unit_number | vlan_check }};
+            {% endif %}
+            {% for unit_key, unit_value in unit_data.items() %}
+            {% if unit_key == "description" %}
+            description "{{ unit_value | str_check }}";
+            {% elif unit_key == "disable" %}
+            disable;
+            {% elif unit_key in ["ipv4", "ipv6"] %}
+            family {{ unit_key | family_check }} {
+                {% for family_key, family_value in unit_value.items() %}
+                {% if family_key == "acls" %}
+                filter {
+                    {% for direction, acl_name in family_value.items() %}
+                    {{ direction | acl_check(acl_name) }};
+                    {% endfor %}
+                }
+                {% elif family_key == "addresses" %}
+                {% for address in family_value %}
+                address {{ address | ip_check("interface") }};
+                {% endfor %}
+                {% endif %}
+                {% endfor %}
+            }
+            {% endif %}
+            {% endfor %}
+        }
+        {% endfor %}
+        {% else %}
+        {{ "Unsupported interface mode '{}'".format(iface_data.mode) | raise_error }}
+        {% endif %}
+        {% endif %}
+        {##################### Comment for a new block #}
+    }
+    {% if (iface_name.startswith('ae')) and (iface_data.ae_members is defined) and (iface_data.ae_members | length > 0) %}
+    {% for ae_member in iface_data.ae_members %}
+    {{ ae_member }} {
+        description "{{ iface_name }}_member";
+        {{ ae_options }} {
+            802.3ad {{ iface_name }};
+        }
+    }
+    {% endfor %}
+    {% endif %}
+    {% endfor %}
+}
+{% endmacro %}

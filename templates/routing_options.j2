@@ -1,0 +1,54 @@
+{% macro routing_options_macro(routing_options, vrf_name='default') %}
+{% if vrf_name == 'default' %}
+    {% set ipv6_rid_name = 'inet6.0' %}
+{% else %}
+    {% set ipv6_rid_name = [vrf_name, '.', 'inet6.0']|join("") %}
+{% endif %}
+routing-options {
+    {% for r_option, r_data in routing_options.items() %}
+    {##################### CONFIGURE ipv6 static routes, variable static_routes_ipv6 must be a dict #}
+    {% if (r_option == 'static_routes_ipv6') and (r_data is mapping) %}
+    rib {{ ipv6_rid_name }} {
+        static {
+            {% for ipv6_prefix, ipv6_nh in r_data.items() %}
+            {% if ipv6_nh == 'discard' %}
+            route {{ ipv6_prefix | ip_check("network", "ipv6") }} discard;
+            {% else %}
+            route {{ ipv6_prefix | ip_check("network", "ipv6") }} next-hop {{ ipv6_nh | ip_or_list("address", "ipv6") }};
+            {% endif %}
+            {% endfor %}
+        }
+    }
+    {% endif %}
+    {##################### CONFIGURE ipv4 static routes, variable static_routes_ipv4 must be a dict #}
+    {% if (r_option == 'static_routes_ipv4') and (r_data is mapping) %}
+    static {
+        {% for ipv4_prefix, ipv4_nh in r_data.items() %}
+        {% if ipv4_nh == 'discard' %}
+        route {{ ipv4_prefix | ip_check("network", "ipv4") }} discard;
+        {% else %}
+        route {{ ipv4_prefix | ip_check("network", "ipv4") }} next-hop {{ ipv4_nh | ip_or_list("address", "ipv4") }};
+        {% endif %}
+        {% endfor %}
+    }
+    {% endif %}
+    {##################### CONFIGURE aggregated routes, variable aggregated_routes must be a list #}
+    {% if (r_option == 'aggregated_routes_ipv6') and (r_data | is_list) %}
+    rib {{ ipv6_rid_name }} {
+        aggregate {
+            {% for aggregated_route_ipv6 in r_data %}
+            route {{ aggregated_route_ipv6 | ip_check("network", "ipv6") }};
+            {% endfor %}
+        }
+    }
+    {% endif %}
+    {% if (r_option == 'aggregated_routes') and (r_data | is_list) %}
+    aggregate {
+        {% for aggregated_route in r_data %}
+        route {{ aggregated_route | ip_check("network", "ipv4") }};
+        {% endfor %}
+    }
+    {% endif%}
+    {% endfor %}
+}
+{% endmacro %}
